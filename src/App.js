@@ -1,23 +1,10 @@
-import logo from './logo.svg';
-import './App.css';
+import ChatBar from './components/Chat_Bar';
+import React from 'react';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="cont flex items-center align-center justify-center w-full h-full rounded-md content-center bg-cyan-950 overflow-y-scroll">
+      <ChatBar></ChatBar>
     </div>
   );
 }
