@@ -7,7 +7,7 @@ const ChatBar = () => {
     const [chatItems, setChatItems] = useState([])
     const chatBottom = useRef();
 
-    const API_key = "AIzaSyDbYafelS05UpJY63Q9PT5-tEmxJzwotcA"
+    const API_key = "enter your own"
     const { GoogleGenerativeAI } = require("@google/generative-ai");
 
     // Access your API key as an environment variable (see "Set up your API key" above)
