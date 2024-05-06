@@ -39,6 +39,7 @@
     ]
   },
   "devDependencies": {
+    "@types/chrome": "^0.0.267",
     "tailwindcss": "^3.4.3"
   }
 }

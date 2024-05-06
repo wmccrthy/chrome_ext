@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 body {
-  width: 500px;
-  height: 275px;
+  width: 600px;
+  height: 325px;
   flex-direction: column;
   align-items: center;
   justify-content: center;

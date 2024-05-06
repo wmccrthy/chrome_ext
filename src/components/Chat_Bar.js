@@ -1,28 +1,55 @@
+/* global chrome */
 import React, {useState, useRef, useEffect} from "react";
 import ChatItem from "./ChatItem";
-import {CiTrash} from 'react-icons/ci'
+import {CiTrash} from 'react-icons/ci';
+
 
 
 const ChatBar = () => {
     const [chatItems, setChatItems] = useState([])
     const chatBottom = useRef();
 
-    const API_key = "AIzaSyDbYafelS05UpJY63Q9PT5-tEmxJzwotcA"
+    const API_key = "your own api key"
     const { GoogleGenerativeAI } = require("@google/generative-ai");
 
     // Access your API key as an environment variable (see "Set up your API key" above)
     const genAI = new GoogleGenerativeAI(API_key);
     const model = genAI.getGenerativeModel({ model: "gemini-pro"});
 
+
     const [chat, setChat] = useState(model.startChat({
         history: []
     }))
+
+
+    // on initial render, retrieve chat history from local history
+    useEffect(() => {
+        // retrieve prior chat from chrome local storage 
+        chrome.storage.local.get(['chat_history', 'chat_items'], (result) => {
+        console.log("Retrieved from local storage:", result)
+        const {chat_history, chat_items} = result;
+        console.log("Setting initial state to:", chat_history, chat_items)
+        if (chat_history) {
+            console.log('setting chat to locally stored history')
+            setChat(model.startChat({history:chat_history}))
+        }
+
+        if (chat_items.length > 0) {
+            console.log("setting chat items to locally stored items")
+            setChatItems(chat_items)
+        }
+        console.log(chatItems, chat)
+        })
+    }, [])
+
 
     const handleReset = () => {
         setChat(model.startChat({
             history: []
         }))
         setChatItems([])
+        const toSave = {chat_history: [], chat_items: []}
+        chrome.storage.local.set(toSave)
     }
     
     useEffect(() => {
@@ -41,9 +68,9 @@ const ChatBar = () => {
             const conv_result = await chat.sendMessage(text)
             const conv_response = await conv_result.response;
             const conv_answer = conv_response.text();
-            console.log(conv_answer)
+            // console.log(conv_answer)
             const chat_hist = await chat.getHistory();
-            console.log(chat_hist)
+            // console.log(chat_hist)
             chatItems.push([conv_answer, "Botimus Prime"])
             
             // const gemini_result = await model.generateContent(text)
@@ -53,6 +80,9 @@ const ChatBar = () => {
             // console.log(answer)
             // chatItems.push([answer, "Botimus Prime"])
             newItems = chatItems.slice()
+            const toSave = {chat_history: chat_hist, chat_items: chatItems}
+            console.log("Saving to local storage:", toSave)
+            chrome.storage.local.set(toSave)
         } catch (err) {
             chatItems.push(["Sorry, can't help with that (API error)", "Botimus Prime"])
             newItems = chatItems.slice()
@@ -72,8 +102,8 @@ const ChatBar = () => {
 
     return (
         <>
-        <div className="container bg-cyan-950 shadow-2xl rounded-md w-[500px] h-[275px] flex flex-col justify-end items-center p-4">
-            <div className="chat text-sky-50 overflow-scroll w-full h-[235px]  mb-10 flex flex-col">
+        <div className="container bg-cyan-950 shadow-2xl rounded-md w-[600px] h-[325px] flex flex-col justify-end items-center p-4">
+            <div className="chat text-sky-50 overflow-scroll w-full h-[285px]  mb-10 flex flex-col">
                 {chatItems.map(item => (
                         <ChatItem text={item[0]} user={item[1]}></ChatItem>
                 ))}
@@ -88,7 +118,7 @@ const ChatBar = () => {
                 </button>
             </form>
 
-            <button className="bg-cyan-800 w-fit h-fit border-2 rounded-lg border-sky text-sky-50 absolute top-2 right-2 text-lg p-1" onClick={handleReset}>
+            <button className="bg-cyan-800 w-fit h-fit border-2 rounded-lg border-sky text-sky-50 absolute top-2 right-2 text-lg p-1 opacity-50 hover:opacity-100 transition-all duration-200" onClick={handleReset}>
                     <CiTrash></CiTrash>
             </button>
         </div>
