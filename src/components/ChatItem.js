@@ -5,6 +5,7 @@ import Markdown from "react-markdown"
 const ChatItem = (props) => {
     const displayName = props.user;
     const displayText = props.text.split("\n");
+    const displayIcon = props.icon;
     // if text contains newlines, we want it to display w proper format 
     console.log(displayText)
     // space text by the # of * chars present in line 
@@ -24,7 +25,10 @@ const ChatItem = (props) => {
             <div className="flex flex-col h-fit">
                 {displayText.map(item => (
                     // <p className="text-xs" style={{marginBottom: `${num_asterix(item)}px`, marginTop: `${num_asterix(item)}px`, fontWeight: isHeading(item)}}>{item.replaceAll("*", "")}</p>
-                    <Markdown style={{marginBottom: `${num_asterix(item)}px`, marginTop: `${num_asterix(item)}px`}}>{item}</Markdown>
+                    <div>
+                        <Markdown style={{marginBottom: `${num_asterix(item)}px`, marginTop: `${num_asterix(item)}px`}}>{item}</Markdown>
+                        {displayIcon && displayIcon}
+                    </div>
                 ))}
             </div>
         </div>
