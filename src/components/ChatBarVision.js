@@ -32,7 +32,6 @@ const ChatBarVision = (props) => {
     const [chatItems, setChatItems] = useState([])
     const chatBottom = useRef();
 
-    // const API_key = "AIzaSyDbYafelS05UpJY63Q9PT5-tEmxJzwotcA"
     // console.log("API Key:", API_key, apiKey)
 
     const { GoogleGenerativeAI } = require("@google/generative-ai");
