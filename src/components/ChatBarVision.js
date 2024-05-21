@@ -1,25 +1,29 @@
 /* global chrome */
 import React, {useState, useRef, useEffect} from "react";
 import ChatItem from "./ChatItem";
-import {CiTrash} from 'react-icons/ci';
+import {CiTrash, CiCirclePlus} from 'react-icons/ci';
 import { FaPencilAlt } from 'react-icons/fa';
 import { ThreeDots, Bars } from "react-loading-icons";
 import { bouncy } from "ldrs";
 import Markdown from "react-markdown";
 import { motion } from "framer-motion";
-import { CiMicrophoneOn, CiCirclePlus} from "react-icons/ci";
 
-const ChatBar = (props) => {
+
+// same as normal chat bar but want to test use of gemini pro vision 
+const ChatBarVision = (props) => {
     const apiKey = props.apiKey;
 
     const tabNum = props.tab;
     const [titleWait, setTitleWait] = useState(false)
 
+    const [image, setImage] = useState(null)
+    const [imageName, setImageName] = useState(null)
+    const [imageURL, setImageURL] = useState(null)
+
     const [title, setTitle] = useState(`Tab ${tabNum}`)
     const [user, setUser] = useState("User")
     const [bot, setBot] = useState("Gemini")
     const [isChanging, setIsChanging] = useState(false)
-    const [recording, setRecording] = useState(false)
 
     const [blur, setBlur] = useState('none')
 
@@ -36,6 +40,7 @@ const ChatBar = (props) => {
     // Access your API key as an environment variable (see "Set up your API key" above)
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-pro"});
+    const vis_model = genAI.getGenerativeModel({ model: "gemini-pro-vision"});
 
 
     const [chat, setChat] = useState(model.startChat({
@@ -50,7 +55,6 @@ const ChatBar = (props) => {
         const conv_answer = conv_response.text();
         setTitle(conv_answer)
         setTitleWait(false)
-
     }
 
     // on initial render, retrieve chat history from local history
@@ -110,6 +114,7 @@ const ChatBar = (props) => {
         chrome.storage.local.set(toSave)
         setTitle(`Tab ${tabNum}`)
     }
+
     
     useEffect(() => {
         chatBottom.current?.scrollIntoView({behavior:'smooth'})
@@ -117,7 +122,11 @@ const ChatBar = (props) => {
 
     const handleChat = async (text) => {
     // add user chat item to chatWindow
-        chatItems.push([text, user,])
+        if (image) {
+            chatItems.push([text, user, imageURL])
+            console.log(imageURL)
+        } //use imageURL if there
+        else {chatItems.push([text, user])}
         var newItems = chatItems.slice()
         setChatItems(newItems)
         setWaiting(true)
@@ -125,22 +134,35 @@ const ChatBar = (props) => {
         // query Gemini for response and add chat item to chatWindow 
         // console.log(chatItems)
         try {
-            const conv_result = await chat.sendMessage(text)
+            // handle image entry 
+            if (image) {
+                console.log("prompting vision model with:", image)
+                // var conv_result = await chat.sendMessage([text, image])
+                var conv_result = await vis_model.generateContent([text, image])
+            } else {
+                console.log('prompting text model with:', text)
+                console.log(model, chat)
+                var conv_result = await chat.sendMessage(text)
+            }
+            // const conv_result = await chat.sendMessage(text)
             const conv_response = await conv_result.response;
             const conv_answer = conv_response.text();
             // console.log(conv_answer)
             const chat_hist = await chat.getHistory();
             // console.log(chat_hist)
             chatItems.push([conv_answer, bot])
+            if (image) {
+                var vision_hist = [{role:'user', parts:[{text:text}]}, {role:'model', parts:[{text:conv_answer}]}]
+                for (let item of vision_hist) {chat_hist.push(item)} //add vision prompt to history
+                console.log(chat_hist)
+                setChat(model.startChat({history:chat_hist})) //reset chat w updated history 
+            }
             setWaiting(false)
             setBlur('none')
-            
-            // const gemini_result = await model.generateContent(text)
-            // const response = await gemini_result.response;
-            // const answer = response.text()
-            // // console.log(response)
-            // console.log(answer)
-            // chatItems.push([answer, "Botimus Prime"])
+            setImage(null) //having queried with prior image, reset to null
+            setImageName(null)
+            setImageURL(null)
+        
             newItems = chatItems.slice()
             var toSave = []
             if (tabNum == 0) {
@@ -153,19 +175,34 @@ const ChatBar = (props) => {
             // chrome.storage.local.set({chat_history:chat_hist})
             // chrome.storage.local.set({chat_items:chatItems})
         } catch (err) {
+            console.log(err)
             chatItems.push(["Sorry, can't help with that (API error)", bot])
+            setImage(null)
+            setImageName(null)
+            setImageURL(null)
             newItems = chatItems.slice()
             setWaiting(false)
             setBlur('none')
         }
         setChatItems(newItems)
-        
+
+        // var priorHist = await chat.getHistory() 
+        // // when resetting from img to normal model, remove img data from history as to not interfere with operation of normal model
+        // for (let i =0; i < priorHist.length; i ++) {
+        //     console.log(priorHist[i].parts)
+        //     if (priorHist[i].parts.length > 1) { 
+        //         console.log('removing:', priorHist[i].parts[1])
+        //         priorHist[i].parts = [priorHist[i].parts[0]]}
+        // }
+        // setChat(model.startChat({history:priorHist})) //reset chat updating history 
     }
 
-    const handleSubmit = (e) => {
+    //!!! have to change to ensure correct input is selected here (distinguish btwn file input and text input)
+    const handleSubmit = async (e) => {
         // retrieve text from input 
+        setImageName(null)
         e.preventDefault();
-        const input = document.querySelector("input")
+        const input = document.querySelectorAll("input")[1]
         const toPrompt = input.value
         console.log(input.value)
         handleChat(toPrompt)
@@ -183,25 +220,79 @@ const ChatBar = (props) => {
         chrome.storage.local.set({user:newName})
     }
 
+    // const fs = require('fs')
+    // // can prompt model with data returned from this method 
+    const fileToGenerativePart = (base64Data, mimeType) => {
+        return {
+          inlineData: {
+            data: base64Data,
+            mimeType
+          },
+        };
+    }
+
+    const handleImgAddition = async (e) => {
+        const imgPath = e.target.files[0];
+
+        // type shud be equal to imgPath.split(".")[1]
+        const imgType = imgPath.type 
+        console.log(imgPath, imgType)
+
+        // take img name and display below upload button
+        setImageName(imgPath.name)
+        
+        // send message to background file with imgPath, imgType for background to return image data object that we can query model with 
+        // chrome.runtime.sendMessage({ img:imgPath, type:imgType }, (res) => {
+        //     console.log(res)
+        //     const imgData = res.img;
+        //     console.log(imgData)
+        //     setImage(imgData)
+        // });
+
+        const base64img = getBase64(imgPath, base64Callback, imgType)
+        console.log("base 64 data:", base64img)
+        console.log('state img:', image)
+        // var priorHist = await chat.getHistory()
+
+
+        // // augment priorHist to have inlineData s.t it's acceptable by vision model
+        // for (let i =0; i < priorHist.length; i ++) {
+        //     console.log(priorHist[i].parts)
+        //     if (priorHist[i].role != 'model' && priorHist[i].parts.length == 1) { 
+        //         const tempInline = {inlineData:{data:"", mimeType:'image/png'}}
+        //         console.log('adding:', tempInline)
+        //         priorHist[i].parts.push(tempInline)}
+        // }
+        // setChat(model.startChat({history:priorHist}))
+
+    }
+
+    const getBase64 =  (file, callback, file_type) => {
+        const reader = new FileReader();
+        reader.onload = () => callback(null, reader.result, file_type);
+        reader.onerror =  (error) => callback(error);
+        reader.readAsDataURL(file);
+    }
+
+    const base64Callback = async (err, res, file_type) => {
+        if (!err) {
+            // use image object full url to create item to display
+            setImageURL(res)
+            // get promptable image object and update image state 
+            res = res.replace('data:image/png;base64,', '')
+            console.log(res)
+            const promptableImg = fileToGenerativePart(res, file_type)
+            console.log(promptableImg)
+            setImage(promptableImg)
+        } else {
+            setImage(null);
+            setImageName(null)
+            setImageURL(null)
+        }
+      };
+
     bouncy.register()
     
-    // use speechrecognition api to take in user audio | fill input w user text, handle submit 
-    const handleRecord = () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        
-        const recognition = new SpeechRecognition()
-        document.querySelector(".record")
-        console.log('startingRecording')
-        setRecording(true)
-        recognition.start()
-        recognition.onresult = (event) => {
-            const speechInput = event.results[0][0].transcript;
-            document.querySelector("input").value = speechInput;
-            document.querySelector(".enter").click()
-            console.log(`Confidence: ${event.results[0][0].confidence}`);
-            setRecording(false)
-          };
-    }
 
     return (
         <>
@@ -215,7 +306,7 @@ const ChatBar = (props) => {
                 </h6>
                 <div className={`chat text-sky-50 overflow-y-scroll w-full h-[320px] mt-3 mb-5 flex flex-col blur-[${blur}]`}>
                     {chatItems.map(item => (
-                            <ChatItem text={item[0]} user={item[1]}></ChatItem>
+                            <ChatItem text={item[0]} user={item[1]} imgUrl={item[2] ? item[2] : null}></ChatItem>
                     ))}
                     {waiting &&  
                         <ChatItem text={""} user={"Gemini"} icon={<l-bouncy size={'28'} speed={'0.9'} color={"white"}></l-bouncy>}></ChatItem>
@@ -226,14 +317,13 @@ const ChatBar = (props) => {
             
             <form className={`input w-5/6 h-8 rounded-lg flex blur-${blur}`} onSubmit={handleSubmit}>
                 {/* ROUNDED SEARCH BAR WHERE YOU TYPE QUERY */}
-
-                {/* exclude for now given that recording API doesn't seem to work for chrome extensions */}
-                {/* <button title="record" className={recording ? `bg-cyan-800 w-fit h-fit border-2 rounded-lg border-sky text-sky-50 mr-2 text-lg p-1 opacity-50 hover:opacity-100 transition-all duration-200` : `bg-cyan-800 w-fit h-fit border-2 rounded-lg border-sky text-sky-50 mr-2 text-lg p-1 opacity-100 transition-all duration-200`} onClick={handleRecord}>
-                    <CiMicrophoneOn></CiMicrophoneOn>
-                </button> */}
-                <button title="add image" className="bg-cyan-800 w-fit h-fit border-2 rounded-lg border-sky text-sky-50 mr-2 text-lg p-1 opacity-100 transition-all duration-200">
-                    <CiCirclePlus></CiCirclePlus>
-                </button>
+                <div className="">
+                    {imageName && <h6 className="text-xs text-sky-50 text-center absolute bottom-9 left-0">{`${imageName.slice(0,15)}...`}</h6>} 
+                    <div title="upload image" className="bg-cyan-800 w-fit h-fit border-2 rounded-lg border-sky text-sky-50 mr-2 text-lg text-center p-1 opacity-100 transition-all duration-200 cursor-pointer" onClick={() => {document.querySelector('#fileSelect').click();}}>
+                        <CiCirclePlus></CiCirclePlus>
+                    </div>
+                    <input id="fileSelect" className="hidden" placeholder="" type="file" onChange={handleImgAddition}/>
+                </div>
                 <input className="w-full h-full rounded-lg rounded-r-none p-1 border-2 border-sky border-r-0 outline-none" type="text" />
                 <button type="submit" className="enter bg-cyan-800 h-8 w-1/6 border-2 rounded-lg rounded-l-none border-sky border-l-0 text-sky-50">
                     Chat
@@ -274,4 +364,4 @@ const ChatBar = (props) => {
 //  - prompt Gemini API w text 
 //  - print response to 'chat' window 
 
-export default ChatBar;
+export default ChatBarVision;

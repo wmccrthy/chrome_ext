@@ -6,8 +6,9 @@ const ChatItem = (props) => {
     const displayName = props.user;
     const displayText = props.text.split("\n");
     const displayIcon = props.icon;
+    const imgUrl = props.imgUrl;
     // if text contains newlines, we want it to display w proper format 
-    console.log(displayText)
+    // console.log(displayText)
     // space text by the # of * chars present in line 
     const num_asterix = (txt) => {
         var cnt = 0
@@ -23,6 +24,7 @@ const ChatItem = (props) => {
         <div className="container flex align-center justify-baseline w-full h-fit p-2">
             <h6 className="mr-10 w-10 font-bold text-xs">{displayName + ":"}</h6>
             <div className="flex flex-col h-fit">
+                {imgUrl && <img src={imgUrl} className="object-scale-down w-4/5 h-4/5 items-center"></img>}
                 {displayText.map(item => (
                     // <p className="text-xs" style={{marginBottom: `${num_asterix(item)}px`, marginTop: `${num_asterix(item)}px`, fontWeight: isHeading(item)}}>{item.replaceAll("*", "")}</p>
                     <div>

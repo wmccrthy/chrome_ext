@@ -3,6 +3,8 @@ import ChatBar from './components/Chat_Bar';
 import React, {useState, useEffect} from 'react';
 import { IoIosSwap } from "react-icons/io";
 import {motion} from 'framer-motion'
+import ChatBarVision from './components/ChatBarVision';
+
 
 
 function App() {
@@ -57,8 +59,10 @@ function App() {
 
       {!needKey && 
         <div>
-          {curTab[0] &&  <ChatBar tab={0} apiKey={key}></ChatBar>}  
-          {curTab[1] &&  <ChatBar tab={1} apiKey={key}></ChatBar>}  
+          {curTab[0] &&  <ChatBarVision tab={0} apiKey={key}></ChatBarVision>} 
+          {curTab[1] &&  <ChatBarVision tab={1} apiKey={key}></ChatBarVision>} 
+          {/* {curTab[0] &&  <ChatBar tab={0} apiKey={key}></ChatBar>}  */}
+          {/* {curTab[1] &&  <ChatBar tab={1} apiKey={key}></ChatBar>}   */}
           <button title='switch tabs' className="bg-cyan-800 w-fit h-fit border-2 rounded-lg border-sky text-sky-50 absolute top-[88px] right-2 text-lg p-1 opacity-50 hover:opacity-100 transition-all duration-200" onClick={() => {setCurTab([!curTab[0], !curTab[1]])}}>
                         <IoIosSwap></IoIosSwap>
           </button>
